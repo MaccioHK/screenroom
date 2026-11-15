@@ -1,0 +1,24 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+import {GENRES,matchesGenre,primaryRating} from '../filters.js';
+import {normalize,parseParams,fetchCatalogue} from '../backend/api.js';
+import {shuffle,interleave,escapeHTML} from '../catalog.js';
+const family={id:'family-movie',title:'Family Movie',en:'Family Movie',type:'movie',genres:['fml','ani'],ageCertification:'G',offers:[{provider:'Netflix'}],ratings:{IMDb:{score:8.1,votes:2500}},year:2024};
+const familyShow={...family,id:'family-show',title:'Family Series',type:'drama'};
+const horror={...family,id:'horror-movie',title:'Horror Movie',genres:['fml','ani','hrr']};
+const adult={...family,id:'adult-movie',title:'Adult Movie',ageCertification:'R'};
+const thriller={...family,id:'thriller',genres:['fml','trl']};
+test('Family excludes horror/thriller, adult and unclassified works',()=>{assert.equal(matchesGenre(family,'family'),true);for(const ageCertification of ['PG','P','0+','6+','7+'])assert.equal(matchesGenre({...family,ageCertification},'family'),true);for(const f of [horror,adult,thriller,{...family,ageCertification:null}])assert.equal(matchesGenre(f,'family'),false);});
+test('Animation is independent from Family and ALL includes unrated old saves',()=>{assert.equal(matchesGenre(horror,'animation'),true);assert.equal(matchesGenre(horror,'horror'),true);assert.equal(matchesGenre({},'all'),true);assert.equal(matchesGenre({},'family'),false);assert.equal(matchesGenre(family,'invalid'),false);});
+test('Ratings prefer IMDb, fall back to TMDB, and never invent a score',()=>{assert.equal(primaryRating(family).source,'IMDb');assert.equal(primaryRating({ratings:{IMDb:{score:0},TMDB:{score:7.3}}}).source,'TMDB');for(const score of [null,0,11,NaN,'8.2'])assert.equal(primaryRating({ratings:{IMDb:{score}}}),null);});
+test('Source normalization retains true scores, votes, genres and safe IMDb link',()=>{const f=normalize({id:'tm1',objectType:'MOVIE',content:{genres:[{shortName:'ani'}],ageCertification:'PG',scoring:{imdbScore:7.8,imdbVotes:1000,tmdbScore:8.2},externalIds:{imdbId:'tt12345'}}},'TW');assert.equal(f.ratings.IMDb.score,7.8);assert.equal(f.ratings.IMDb.votes,1000);assert.equal(f.ratings.IMDb.url,'https://www.imdb.com/title/tt12345/');assert.deepEqual(f.genres,['ani']);assert.equal(f.ageCertification,'PG');assert.deepEqual(normalize({id:'tm2',content:{scoring:{imdbScore:0}}},'TW').ratings,{});});
+test('API defaults to ALL, rejects unknown genres and combines source filters',async()=>{assert.equal(parseParams(new URL('https://site/api/catalog')).genre,'all');assert.throws(()=>parseParams(new URL('https://site/api/catalog?genre=bad')));let vars;const result=await fetchCatalogue({country:'TW',provider:'Netflix',q:'toy',genre:'family'},async(_url,opts)=>{vars=JSON.parse(opts.body).variables;return Response.json({data:Object.fromEntries(['movies','shows','trendingMovies','trendingShows'].map(k=>[k,{edges:[]}]))});});assert.deepEqual(vars.movie,{packages:['nfx'],searchQuery:'toy',genres:['fml'],objectTypes:['MOVIE']});assert.equal(result.genre,'family');});
+test('The global Family filter survives all eight tab renders and Lucky draws',()=>{
+ const nodes=new Map();const element=()=>({innerHTML:'',textContent:'',hidden:false,value:'',dataset:{},style:{},classList:{toggle(){},add(){},remove(){}},addEventListener(){},setAttribute(){},querySelector(){return null}});
+ const document={querySelector:s=>{if(!nodes.has(s))nodes.set(s,element());return nodes.get(s)},querySelectorAll:()=>[],addEventListener(){}};
+ document.querySelector('#sort').value='default';
+ const context=vm.createContext({document,console,Intl,Option:class{},localStorage:{getItem:()=>null},setTimeout,clearTimeout,GENRES,matchesGenre,primaryRating,shuffle,interleave,esc:escapeHTML,legacy:[],fixture:{movies:[family,horror,adult],shows:[familyShow],trendingMovies:[horror,family],trendingShows:[familyShow]},libraryFixture:{a:{status:'later',film:family},b:{status:'later',film:horror},c:{status:'seen',film:familyShow},d:{status:'seen',film:adult},e:{status:'hidden',film:{...family,id:'hidden-family',title:'Hidden Family'}},f:{status:'hidden',film:horror}}});
+ let source=fs.readFileSync('app.js','utf8').replace(/^import .*;\n/gm,'').replace('render();checkIP();','render();');
+ vm.runInContext(source,context);assert.equal(vm.runInContext('selectedGenre',context),'all');
+ vm.runInContext("selectedGenre='family';catalog=fixture;library=libraryFixture;",context);
+ for(const view of ['all','movie','drama','lucky-movie','lucky-drama','later','seen','hidden']){vm.runInContext(`view=${JSON.stringify(view)};render();`,context);const html=nodes.get('#content').innerHTML;assert.ok(!html.includes('Horror Movie'),view);assert.ok(!html.includes('Adult Movie'),view);assert.match(html,/Family/,view);assert.equal(vm.runInContext('selectedGenre',context),'family');}
+});
