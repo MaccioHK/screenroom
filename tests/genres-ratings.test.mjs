@@ -22,3 +22,5 @@ test('The global Family filter survives all eight tab renders and Lucky draws',(
  vm.runInContext("selectedGenre='family';catalog=fixture;library=libraryFixture;",context);
  for(const view of ['all','movie','drama','lucky-movie','lucky-drama','later','seen','hidden']){vm.runInContext(`view=${JSON.stringify(view)};render();`,context);const html=nodes.get('#content').innerHTML;assert.ok(!html.includes('Horror Movie'),view);assert.ok(!html.includes('Adult Movie'),view);assert.match(html,/Family/,view);assert.equal(vm.runInContext('selectedGenre',context),'family');}
 });
+
+test('Filter covers all 19 categories in the verified source taxonomy',()=>{const taxonomy=JSON.parse(fs.readFileSync('tests/genre-taxonomy.json','utf8'));const expected=taxonomy.genres.map(g=>g.shortName).sort();const actual=Object.values(GENRES).map(g=>g.code).filter(Boolean).sort();assert.equal(expected.length,19);assert.deepEqual(actual,expected);for(const [key,g] of Object.entries(GENRES)){if(key==='all'||key==='family')continue;assert.equal(matchesGenre({genres:[g.code]},key),true,key);}assert.equal(matchesGenre({genres:['future-category']},'all'),true);});

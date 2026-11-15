@@ -1,0 +1,82 @@
+{
+  "source": "https://apis.justwatch.com/graphql",
+  "checkedOn": "2026-11-15",
+  "genres": [
+    {
+      "shortName": "war",
+      "translation": "War & Military"
+    },
+    {
+      "shortName": "wsn",
+      "translation": "Western"
+    },
+    {
+      "shortName": "eur",
+      "translation": "Made in Europe"
+    },
+    {
+      "shortName": "cmy",
+      "translation": "Comedy"
+    },
+    {
+      "shortName": "spt",
+      "translation": "Sport"
+    },
+    {
+      "shortName": "hst",
+      "translation": "History"
+    },
+    {
+      "shortName": "rly",
+      "translation": "Reality TV"
+    },
+    {
+      "shortName": "msc",
+      "translation": "Music & Musical"
+    },
+    {
+      "shortName": "trl",
+      "translation": "Mystery & Thriller"
+    },
+    {
+      "shortName": "rma",
+      "translation": "Romance"
+    },
+    {
+      "shortName": "scf",
+      "translation": "Science-Fiction"
+    },
+    {
+      "shortName": "act",
+      "translation": "Action & Adventure"
+    },
+    {
+      "shortName": "crm",
+      "translation": "Crime"
+    },
+    {
+      "shortName": "doc",
+      "translation": "Documentary"
+    },
+    {
+      "shortName": "drm",
+      "translation": "Drama"
+    },
+    {
+      "shortName": "ani",
+      "translation": "Animation"
+    },
+    {
+      "shortName": "fnt",
+      "translation": "Fantasy"
+    },
+    {
+      "shortName": "hrr",
+      "translation": "Horror"
+    },
+    {
+      "shortName": "fml",
+      "translation": "Kids & Family"
+    }
+  ]
+}
