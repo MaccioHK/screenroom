@@ -23,4 +23,25 @@ test('The global Family filter survives all eight tab renders and Lucky draws',(
  for(const view of ['all','movie','drama','lucky-movie','lucky-drama','later','seen','hidden']){vm.runInContext(`view=${JSON.stringify(view)};render();`,context);const html=nodes.get('#content').innerHTML;assert.ok(!html.includes('Horror Movie'),view);assert.ok(!html.includes('Adult Movie'),view);assert.match(html,/Family/,view);assert.equal(vm.runInContext('selectedGenre',context),'family');}
 });
 
-test('Filter covers all 19 categories in the verified source taxonomy',()=>{const taxonomy=JSON.parse(fs.readFileSync('tests/genre-taxonomy.json','utf8'));const expected=taxonomy.genres.map(g=>g.shortName).sort();const actual=Object.values(GENRES).map(g=>g.code).filter(Boolean).sort();assert.equal(expected.length,19);assert.deepEqual(actual,expected);for(const [key,g] of Object.entries(GENRES)){if(key==='all'||key==='family')continue;assert.equal(matchesGenre({genres:[g.code]},key),true,key);}assert.equal(matchesGenre({genres:['future-category']},'all'),true);});
+test('Filter covers all 19 categories in the verified source taxonomy',()=>{const taxonomy=JSON.parse(fs.readFileSync('tests/genre-taxonomy.json','utf8'));const expected=taxonomy.genres.map(g=>g.shortName).sort();const actual=Object.values(GENRES).map(g=>g.code).filter(Boolean).sort();assert.equal(expected.length,19);assert.deepEqual(actual,expected);for(const [key,g] of Object.entries(GENRES)){if(key==='all'||key==='family'||key==='others')continue;assert.equal(matchesGenre({genres:[g.code]},key),true,key);}assert.equal(matchesGenre({genres:['future-category']},'all'),true);});
+
+test('Others is the complement of actual named predicates, not just unknown tags',()=>{
+ const named=Object.keys(GENRES).filter(k=>k!=='all'&&k!=='others');
+ const examples=[{}, {genres:[]}, {genres:['future']}, {genres:['future','hrr']}, {genres:['fml'],ageCertification:'G'}, {genres:['fml'],ageCertification:'R'}, {genres:['fml']}, {genres:['fml','ani'],ageCertification:'R'}, ...named.map(k=>({genres:[GENRES[k].code]}))];
+ for(const film of examples){const inC=named.some(k=>matchesGenre(film,k)),inO=matchesGenre(film,'others');assert.equal(inC&&inO,false);assert.equal(inC||inO,matchesGenre(film,'all'));}
+ assert.equal(matchesGenre({genres:['future','hrr']},'others'),false);
+ assert.equal(matchesGenre({genres:['fml'],ageCertification:'R'},'others'),true);
+ assert.equal(matchesGenre({genres:['fml','ani'],ageCertification:'R'},'others'),false);
+});
+test('ALL equals classified union Others for the same raw API response',async()=>{
+ const nodes=[{id:'unknown',objectType:'MOVIE',content:{title:'Future',genres:[{shortName:'future'}]}},{id:'missing',objectType:'MOVIE',content:{title:'No category'}},{id:'mixed',objectType:'MOVIE',content:{title:'Mixed',genres:[{shortName:'future'},{shortName:'hrr'}]}},{id:'family-R',objectType:'MOVIE',content:{title:'Family only, mature',genres:[{shortName:'fml'}],ageCertification:'R'}},{id:'ordinary',objectType:'MOVIE',content:{title:'Comedy',genres:[{shortName:'cmy'}]}}];
+ const fixture={data:Object.fromEntries(['movies','shows','trendingMovies','trendingShows'].map(key=>[key,{edges:nodes.map(node=>({node}))}]))};let variables;
+ const fetcher=async(_url,opts)=>{variables=JSON.parse(opts.body).variables;return Response.json(fixture)};
+ const params={country:'TW',provider:'Netflix',q:'test'};
+ const all=await fetchCatalogue({...params,genre:'all'},fetcher),other=await fetchCatalogue({...params,genre:'others'},fetcher);
+ assert.equal(Object.hasOwn(variables.movie,'genres'),false);assert.deepEqual(variables.movie.packages,['nfx']);assert.equal(variables.movie.searchQuery,'test');
+ for(const key of ['movies','shows','trendingMovies','trendingShows']){assert.deepEqual(other[key].map(f=>f.id),['unknown','missing','family-R']);const named=Object.keys(GENRES).filter(k=>k!=='all'&&k!=='others');const classified=all[key].filter(f=>named.some(k=>matchesGenre(f,k)));assert.deepEqual([...classified,...other[key]].map(f=>f.id).sort(),all[key].map(f=>f.id).sort());assert.equal(new Set([...classified,...other[key]].map(f=>f.id)).size,all[key].length);assert.deepEqual(other.coverage[key],{all:5,classified:2,others:3});}
+});
+test('Others may be empty when every item matches a named category',async()=>{
+ const node={id:'known',objectType:'MOVIE',content:{genres:[{shortName:'hrr'}]}};const data=await fetchCatalogue({country:'TW',provider:'all',q:'',genre:'others'},async()=>Response.json({data:Object.fromEntries(['movies','shows','trendingMovies','trendingShows'].map(k=>[k,{edges:[{node}]}]))}));assert.equal(data.movies.length,0);assert.deepEqual(data.coverage.movies,{all:1,classified:1,others:0});
+});

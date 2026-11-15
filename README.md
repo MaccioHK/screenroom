@@ -25,3 +25,9 @@ node backend/build.mjs
 ```
 
 The frontend is published from the `gh-pages` branch root. It reads `config.js` for the separate public API origin. GitHub Pages cannot execute the backend; `backend/` contains its source and standalone build script. The API uses public JustWatch catalogue data and exposes no account credentials. IP lookup results stay in the browser and are not sent to this API.
+
+## Complete-set coverage
+
+Let U be the returned catalogue pool for the same region, provider and search (or the saved-list pool in a personal tab). ALL imposes no genre restriction. Let C be the union of the actual named category predicates, including the stricter Family predicate. Others is U minus C. It includes unknown/future genre codes, untagged titles, and family-only titles that do not pass Family's classification rule unless they also match another named category. A title with any recognized matching category is excluded from Others even if it also has an unknown tag.
+
+C and Others are disjoint and their union is U. Others may legitimately be empty. Coverage counts are calculated from the same unfiltered source response; no additional upstream genre restriction is applied to Others. Up to 100 movies and 100 series are fetched per search, plus the trend pools: these are not an exhaustive platform inventory.

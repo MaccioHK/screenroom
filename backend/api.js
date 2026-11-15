@@ -31,7 +31,9 @@ export async function fetchCatalogue(params,fetcher=fetch){
  if(body.errors?.length||!body.data)throw Error('這個地區的榜單暫時無法取得，請重試或手動選擇地區');
  const result={country,provider,q,genre,fetchedAt:new Date().toISOString(),source:'JustWatch',sourceURL:'https://www.justwatch.com/'+(country==='GB'?'uk':country.toLowerCase())};
  for(const key of ['movies','shows','trendingMovies','trendingShows']){
-  const seen=new Set();result[key]=(body.data[key]?.edges||[]).map(e=>normalize(e.node,country)).filter(f=>matchesGenre(f,genre)&&!seen.has(f.id)&&seen.add(f.id)).map((f,index)=>({...f,rank:index+1}));
+  const seen=new Set();const pool=(body.data[key]?.edges||[]).map(e=>normalize(e.node,country)).filter(f=>!seen.has(f.id)&&seen.add(f.id));
+  if(genre==='all'||genre==='others'){result.coverage??={};const others=pool.filter(f=>matchesGenre(f,'others')).length;result.coverage[key]={all:pool.length,classified:pool.length-others,others};}
+  result[key]=pool.filter(f=>matchesGenre(f,genre)).map((f,index)=>({...f,rank:index+1}));
  }
  return result;
 }
